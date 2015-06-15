@@ -34,6 +34,7 @@ import com.google.api.services.bigquery.BigqueryScopes;
 import com.google.api.services.bigquery.model.TableDataInsertAllRequest;
 import com.google.api.services.bigquery.model.TableDataInsertAllResponse;
 import com.google.api.services.bigquery.model.TableDataInsertAllResponse.InsertErrors;
+import com.google.api.services.bigquery.model.TableDataList;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -232,25 +233,23 @@ public class GoogleBigQueryConnector {
 	 * @return
 	 */
 	@Processor	
-	public Bigquery.Tabledata.List listAll(String datasetId, String projectId, String tableId) {
+	public TableDataList listAll(String datasetId, String projectId, String tableId) {
 
-		Bigquery.Tabledata.List response = null;
+		TableDataList list = null;
 		
 		try {
 			logger.info("Listing: " + datasetId + " : " + projectId + " : " + tableId);
-			Bigquery.Tabledata.List list = bigQuery.tabledata().list(datasetId, projectId, tableId);
+			list = bigQuery.tabledata().list(datasetId, projectId, tableId).execute();
 			if (list != null)
-				response = list;
-			else
-				logger.warn("BigQuery List all returned NULL");
+				logger.info("List All response:\n" + list.toPrettyString());
 		}
 		catch (java.io.IOException ioe) {
 			ioe.printStackTrace();
 			logger.error(ioe.getMessage());
 			throw new RuntimeException(String.format("Error listing table%s.", ioe.toString()), ioe.getCause());
 		}
-		
-		return response;
+				
+		return list;
 		
 	}
 	
