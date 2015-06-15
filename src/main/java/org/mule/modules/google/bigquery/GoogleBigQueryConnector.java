@@ -9,6 +9,7 @@
 
 package org.mule.modules.google.bigquery;
 
+import org.apache.commons.io.IOUtils;
 import org.mule.api.annotations.ConnectionIdentifier;
 import org.mule.api.annotations.Connector;
 import org.mule.api.annotations.Connect;
@@ -33,6 +34,9 @@ import com.google.api.services.bigquery.BigqueryScopes;
 import com.google.api.services.bigquery.model.TableDataInsertAllRequest;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -76,16 +80,23 @@ public class GoogleBigQueryConnector {
 		logger.info(String.format("Logging into Google BigQuery application %s.", applicationName));
 		
 		try {
+			InputStream in = this.getClass().getClassLoader().getResourceAsStream(privateKeyP12File);
+			File p12File = File.createTempFile("privateKey", ".p12");
+			OutputStream out = new FileOutputStream(p12File);
+			IOUtils.copy(in, out);
+			out.close();
+			
 		    credential = new GoogleCredential.Builder().setTransport(TRANSPORT)
 		            .setJsonFactory(JSON_FACTORY)
 		            .setServiceAccountId(clientId)
 		            .setServiceAccountScopes(SCOPES)
-		            .setServiceAccountPrivateKeyFromP12File(new File(privateKeyP12File))
+		            .setServiceAccountPrivateKeyFromP12File(p12File)
 		            .build();
 
 	        bigQuery = new Bigquery.Builder(TRANSPORT, JSON_FACTORY, credential)
 	            .setApplicationName(applicationName)
 	            .setHttpRequestInitializer(credential).build();
+	        logger.info("BigQuery client created: " + bigQuery.getApplicationName() + " : " + bigQuery.getServicePath());
 			
 		}
 		catch (Exception ex) {
@@ -151,6 +162,8 @@ public class GoogleBigQueryConnector {
 	@Processor	
 	public String insertAll(String datasetId, String projectId, String tableId, 
 			@Default("#[payload]") java.util.Map<String, Object> content) {
+	
+		logger.info("Insert all payload:\n" + content);
 		
 		String response = null;
 		TableDataInsertAllRequest insertAllRequest = new TableDataInsertAllRequest();
@@ -175,9 +188,13 @@ public class GoogleBigQueryConnector {
 			requestRows.setJson((Map<String,Object>) row.get("json"));
 			tableRows.add(requestRows);
 		}
-				
+		
+		// Add rows
+		insertAllRequest.setRows(tableRows);
+			
 		try {
-			response = bigQuery.tabledata().insertAll(datasetId, projectId, tableId, insertAllRequest).getLastStatusMessage();
+			logger.trace("InsertAllRequest:\n" + insertAllRequest.toPrettyString());
+			response = bigQuery.tabledata().insertAll(datasetId, projectId, tableId, insertAllRequest).toString();
 		}
 		catch (java.io.IOException ioe) {
 			ioe.printStackTrace();
@@ -188,4 +205,37 @@ public class GoogleBigQueryConnector {
 		return response;
 	}
 
+	/**
+	 * Streaming into Table. 
+	 * 
+	 * {@sample.xml ../../../doc/google-bigquery-connector.xml.sample google-bigquery:list-all}
+	 * 
+	 * @param datasetId Dataset Id
+	 * @param projectId Project Id
+	 * @param tableId Table Id
+	 * @return
+	 */
+	@Processor	
+	public Bigquery.Tabledata.List listAll(String datasetId, String projectId, String tableId) {
+
+		Bigquery.Tabledata.List response = null;
+		
+		try {
+			logger.info("Listing: " + datasetId + " : " + projectId + " : " + tableId);
+			Bigquery.Tabledata.List list = bigQuery.tabledata().list(datasetId, projectId, tableId);
+			if (list != null)
+				response = list;
+			else
+				logger.warn("BigQuery List all returned NULL");
+		}
+		catch (java.io.IOException ioe) {
+			ioe.printStackTrace();
+			logger.error(ioe.getMessage());
+			throw new RuntimeException(String.format("Error listing table%s.", ioe.toString()), ioe.getCause());
+		}
+		
+		return response;
+		
+	}
+	
 }

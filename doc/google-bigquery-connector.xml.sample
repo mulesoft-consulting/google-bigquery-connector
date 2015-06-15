@@ -8,3 +8,7 @@
     	<google-bigquery:content ref="#[payload]"/>
     </google-bigquery:insert-all>
 <!-- END_INCLUDE(google-bigquery:insert-all) -->
+
+<!-- BEGIN_INCLUDE(google-bigquery:list-all) -->
+    <google-bigquery:list-all datasetId="someId" projectId="someId" tableId="someId"/>
+<!-- END_INCLUDE(google-bigquery:list-all) -->
