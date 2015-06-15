@@ -32,6 +32,8 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.BigqueryScopes;
 import com.google.api.services.bigquery.model.TableDataInsertAllRequest;
+import com.google.api.services.bigquery.model.TableDataInsertAllResponse;
+import com.google.api.services.bigquery.model.TableDataInsertAllResponse.InsertErrors;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -66,7 +68,7 @@ public class GoogleBigQueryConnector {
 	/**
 	 * 
 	 * @param applicationName
-	 * @param clientId
+	 * @param serviceAccount
 	 * @param scope
 	 * @param privateKeyP12File
 	 * 
@@ -74,7 +76,7 @@ public class GoogleBigQueryConnector {
 	 */
 	@SuppressWarnings("unchecked")
 	@Connect
-	public void connect(@ConnectionKey String applicationName, @Password String clientId, String privateKeyP12File) 
+	public void connect(@ConnectionKey String applicationName, @Password String serviceAccount, String privateKeyP12File) 
 		throws ConnectionException {
 		
 		logger.info(String.format("Logging into Google BigQuery application %s.", applicationName));
@@ -85,18 +87,22 @@ public class GoogleBigQueryConnector {
 			OutputStream out = new FileOutputStream(p12File);
 			IOUtils.copy(in, out);
 			out.close();
-			
+
 		    credential = new GoogleCredential.Builder().setTransport(TRANSPORT)
 		            .setJsonFactory(JSON_FACTORY)
-		            .setServiceAccountId(clientId)
+		            .setServiceAccountId(serviceAccount)
 		            .setServiceAccountScopes(SCOPES)
 		            .setServiceAccountPrivateKeyFromP12File(p12File)
 		            .build();
-
+		    
+		    credential.refreshToken();
+		    logger.trace("Assess token: " + credential.getAccessToken());
+		    logger.trace("Refresh token: " + credential.getRefreshToken());
+		    
 	        bigQuery = new Bigquery.Builder(TRANSPORT, JSON_FACTORY, credential)
 	            .setApplicationName(applicationName)
 	            .setHttpRequestInitializer(credential).build();
-	        logger.info("BigQuery client created: " + bigQuery.getApplicationName() + " : " + bigQuery.getServicePath());
+	        logger.info("BigQuery client created: " + bigQuery.toString());
 			
 		}
 		catch (Exception ex) {
@@ -165,8 +171,10 @@ public class GoogleBigQueryConnector {
 	
 		logger.info("Insert all payload:\n" + content);
 		
-		String response = null;
+		String strResponse = null;
+		
 		TableDataInsertAllRequest insertAllRequest = new TableDataInsertAllRequest();
+		TableDataInsertAllResponse response = null;
 
 		insertAllRequest.setKind((String) content.get("kind"));
 		Boolean skipInvalidRows = (Boolean) content.get("skipInvalidRows");
@@ -194,7 +202,15 @@ public class GoogleBigQueryConnector {
 			
 		try {
 			logger.trace("InsertAllRequest:\n" + insertAllRequest.toPrettyString());
-			response = bigQuery.tabledata().insertAll(datasetId, projectId, tableId, insertAllRequest).toString();
+			response = bigQuery.tabledata().insertAll(datasetId, projectId, tableId, insertAllRequest).execute();
+			strResponse = response.toPrettyString();
+
+			if (response != null) {
+				List<InsertErrors> errorsList = response.getInsertErrors();
+				for (InsertErrors errors: errorsList) {
+					logger.error("Errors: " + errors.toPrettyString());
+				}
+			}
 		}
 		catch (java.io.IOException ioe) {
 			ioe.printStackTrace();
@@ -202,7 +218,7 @@ public class GoogleBigQueryConnector {
 			throw new RuntimeException(String.format("Error streaming into table%s.", ioe.toString()), ioe.getCause());
 		}
 		
-		return response;
+		return strResponse;
 	}
 
 	/**
