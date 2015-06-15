@@ -1,0 +1,10 @@
+<!-- BEGIN_INCLUDE(google-bigquery:config) -->
+	<google-bigquery:config applicationName="someApplicaitonName"
+		clientId="someClientId" privateKeyP12File="someP12File"/>
+<!-- END_INCLUDE(google-bigquery:config) -->
+
+<!-- BEGIN_INCLUDE(google-bigquery:insert-all) -->
+    <google-bigquery:insert-all datasetId="someId" projectId="someId" tableId="someId" config-ref="google-bigquery" >
+    	<google-bigquery:content ref="#[payload]"/>
+    </google-bigquery:insert-all>
+<!-- END_INCLUDE(google-bigquery:insert-all) -->
