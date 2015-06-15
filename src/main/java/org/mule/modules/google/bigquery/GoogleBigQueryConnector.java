@@ -56,7 +56,7 @@ public class GoogleBigQueryConnector {
 
 	private static Logger logger = LoggerFactory.getLogger(GoogleBigQueryConnector.class);	
 	@SuppressWarnings("rawtypes")
-	private static final List SCOPES = Arrays.asList(BigqueryScopes.BIGQUERY);
+	private static final List SCOPES = Arrays.asList(BigqueryScopes.BIGQUERY, BigqueryScopes.BIGQUERY_INSERTDATA, BigqueryScopes.CLOUD_PLATFORM);
 	private static final HttpTransport TRANSPORT = new NetHttpTransport();
 	private static final JsonFactory JSON_FACTORY = new JacksonFactory();
 	
