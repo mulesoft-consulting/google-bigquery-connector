@@ -90,7 +90,7 @@ public class GoogleBigQueryConnector {
 		
 		try {
 			InputStream in = this.getClass().getClassLoader().getResourceAsStream(privateKeyP12File);
-			File p12File = File.createTempFile("privateKey", ".p12");
+			File p12File = File.createTempFile(privateKeyP12File + System.currentTimeMillis(), ".p12");
 			OutputStream out = new FileOutputStream(p12File);
 			IOUtils.copy(in, out);
 			out.close();
