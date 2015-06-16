@@ -25,16 +25,21 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
 import com.google.api.client.http.HttpTransport;
-import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
+import com.google.api.client.googleapis.services.json.AbstractGoogleJsonClientRequest;
+import com.google.api.client.googleapis.services.json.CommonGoogleJsonClientRequestInitializer;
 import com.google.api.services.bigquery.Bigquery;
+import com.google.api.services.bigquery.BigqueryRequest;
 import com.google.api.services.bigquery.BigqueryScopes;
 import com.google.api.services.bigquery.model.TableDataInsertAllRequest;
 import com.google.api.services.bigquery.model.TableDataInsertAllResponse;
 import com.google.api.services.bigquery.model.TableDataInsertAllResponse.InsertErrors;
 import com.google.api.services.bigquery.model.TableDataList;
+import com.google.api.services.bigquery.model.TableRow;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -57,9 +62,10 @@ public class GoogleBigQueryConnector {
 	private static Logger logger = LoggerFactory.getLogger(GoogleBigQueryConnector.class);	
 	@SuppressWarnings("rawtypes")
 	private static final List SCOPES = Arrays.asList(BigqueryScopes.BIGQUERY, BigqueryScopes.BIGQUERY_INSERTDATA, BigqueryScopes.CLOUD_PLATFORM);
-	private static final HttpTransport TRANSPORT = new NetHttpTransport();
 	private static final JsonFactory JSON_FACTORY = new JacksonFactory();
-	
+
+	private static HttpTransport httpTransport = null;
+
 	// Credentials
 	private GoogleCredential credential;
 	
@@ -88,8 +94,11 @@ public class GoogleBigQueryConnector {
 			OutputStream out = new FileOutputStream(p12File);
 			IOUtils.copy(in, out);
 			out.close();
-
-		    credential = new GoogleCredential.Builder().setTransport(TRANSPORT)
+			logger.info("Reading key file: " + p12File.getAbsolutePath());
+			
+			httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+			
+		    credential = new GoogleCredential.Builder().setTransport(httpTransport)
 		            .setJsonFactory(JSON_FACTORY)
 		            .setServiceAccountId(serviceAccount)
 		            .setServiceAccountScopes(SCOPES)
@@ -100,7 +109,15 @@ public class GoogleBigQueryConnector {
 		    logger.trace("Assess token: " + credential.getAccessToken());
 		    logger.trace("Refresh token: " + credential.getRefreshToken());
 		    
-	        bigQuery = new Bigquery.Builder(TRANSPORT, JSON_FACTORY, credential)
+	        bigQuery = new Bigquery.Builder(httpTransport, JSON_FACTORY, credential)
+				.setGoogleClientRequestInitializer(new CommonGoogleJsonClientRequestInitializer() {
+					@SuppressWarnings("unused")
+					public void initialize(@SuppressWarnings("rawtypes") AbstractGoogleJsonClientRequest request) {
+				        @SuppressWarnings("rawtypes")
+						BigqueryRequest bigqueryRequest = (BigqueryRequest) request;
+				        bigqueryRequest.setPrettyPrint(true);
+					}
+				})
 	            .setApplicationName(applicationName)
 	            .setHttpRequestInitializer(credential).build();
 	        logger.info("BigQuery client created: " + bigQuery.toString());
@@ -194,7 +211,12 @@ public class GoogleBigQueryConnector {
 			String insertId = (String) row.get("insertId");
 			if (insertId != null)
 				requestRows.setInsertId(insertId);
-			requestRows.setJson((Map<String,Object>) row.get("json"));
+			else
+				requestRows.setInsertId(String.valueOf(System.currentTimeMillis()));
+			TableRow tableRow = new TableRow();
+			tableRow.putAll((Map<String,Object>) row.get("json"));
+			logger.trace("Table Row: " + tableRow);
+			requestRows.setJson(tableRow);
 			tableRows.add(requestRows);
 		}
 		
@@ -212,6 +234,11 @@ public class GoogleBigQueryConnector {
 					logger.error("Errors: " + errors.toPrettyString());
 				}
 			}
+		}
+		catch (GoogleJsonResponseException gjre) {
+			gjre.printStackTrace();
+			logger.error(gjre.getMessage());
+			throw new RuntimeException(String.format("Error streaming into table%s.", gjre.toString()), gjre.getCause());
 		}
 		catch (java.io.IOException ioe) {
 			ioe.printStackTrace();
