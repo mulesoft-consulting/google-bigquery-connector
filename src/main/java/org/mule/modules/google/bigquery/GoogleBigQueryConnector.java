@@ -9,7 +9,6 @@
 
 package org.mule.modules.google.bigquery;
 
-import org.apache.commons.io.IOUtils;
 import org.mule.api.annotations.ConnectionIdentifier;
 import org.mule.api.annotations.Connector;
 import org.mule.api.annotations.Connect;
@@ -223,13 +222,15 @@ public class GoogleBigQueryConnector {
 			
 		try {
 			logger.trace("InsertAllRequest:\n" + insertAllRequest.toPrettyString());
-			response = bigQuery.tabledata().insertAll(datasetId, projectId, tableId, insertAllRequest).execute();
+			response = bigQuery.tabledata().insertAll(projectId, datasetId, tableId, insertAllRequest).execute();
 			strResponse = response.toPrettyString();
 
 			if (response != null) {
 				List<InsertErrors> errorsList = response.getInsertErrors();
-				for (InsertErrors errors: errorsList) {
-					logger.error("Errors: " + errors.toPrettyString());
+				if (errorsList != null) {
+					for (InsertErrors errors: errorsList) {
+						logger.error("Errors: " + errors.toPrettyString());
+					}
 				}
 			}
 		}
@@ -252,8 +253,8 @@ public class GoogleBigQueryConnector {
 	 * 
 	 * {@sample.xml ../../../doc/google-bigquery-connector.xml.sample google-bigquery:list-all}
 	 * 
-	 * @param datasetId Dataset Id
 	 * @param projectId Project Id
+	 * @param datasetId Dataset Id
 	 * @param tableId Table Id
 	 * @return
 	 */
@@ -263,8 +264,8 @@ public class GoogleBigQueryConnector {
 		TableDataList list = null;
 		
 		try {
-			logger.info("Listing: " + datasetId + " : " + projectId + " : " + tableId);
-			list = bigQuery.tabledata().list(datasetId, projectId, tableId).execute();
+			logger.info("Listing: " + projectId + " : " + datasetId + " : " + tableId);
+			list = bigQuery.tabledata().list(projectId, datasetId, tableId).execute();
 			if (list != null)
 				logger.info("List All response:\n" + list.toPrettyString());
 		}
