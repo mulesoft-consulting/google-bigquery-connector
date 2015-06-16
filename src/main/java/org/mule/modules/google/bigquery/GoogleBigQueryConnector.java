@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.SecurityUtils;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
@@ -41,10 +42,8 @@ import com.google.api.services.bigquery.model.TableDataInsertAllResponse.InsertE
 import com.google.api.services.bigquery.model.TableDataList;
 import com.google.api.services.bigquery.model.TableRow;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.OutputStream;
+import java.security.PrivateKey;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -83,18 +82,17 @@ public class GoogleBigQueryConnector {
 	 */
 	@SuppressWarnings("unchecked")
 	@Connect
-	public void connect(@ConnectionKey String applicationName, @Password String serviceAccount, String privateKeyP12File) 
+	public void connect(@ConnectionKey String applicationName, @Password String serviceAccount, String privateKeyP12File,  
+			@Password String storePass, String alias, @Password String keyPass) 
 		throws ConnectionException {
 		
 		logger.info(String.format("Logging into Google BigQuery application %s.", applicationName));
 		
 		try {
 			InputStream in = this.getClass().getClassLoader().getResourceAsStream(privateKeyP12File);
-			File p12File = File.createTempFile(privateKeyP12File + System.currentTimeMillis(), ".p12");
-			OutputStream out = new FileOutputStream(p12File);
-			IOUtils.copy(in, out);
-			out.close();
-			logger.info("Reading key file: " + p12File.getAbsolutePath());
+			PrivateKey key = SecurityUtils.loadPrivateKeyFromKeyStore(SecurityUtils.getPkcs12KeyStore(), in, storePass, alias, keyPass);
+			logger.trace("Key size: "+key.getEncoded().length);
+			logger.trace("Key algorithm: "+key.getAlgorithm());
 			
 			httpTransport = GoogleNetHttpTransport.newTrustedTransport();
 			
@@ -102,7 +100,7 @@ public class GoogleBigQueryConnector {
 		            .setJsonFactory(JSON_FACTORY)
 		            .setServiceAccountId(serviceAccount)
 		            .setServiceAccountScopes(SCOPES)
-		            .setServiceAccountPrivateKeyFromP12File(p12File)
+		            .setServiceAccountPrivateKey(key)
 		            .build();
 		    
 		    credential.refreshToken();

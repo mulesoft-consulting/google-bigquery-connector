@@ -1,6 +1,6 @@
 <!-- BEGIN_INCLUDE(google-bigquery:config) -->
 	<google-bigquery:config applicationName="someApplicaitonName"
-		serviceAccount="serviceAccountEmail" privateKeyP12File="someP12File"/>
+		serviceAccount="serviceAccountEmail" privateKeyP12File="someP12File" storePass="storepass" alias="alias" keyPass="keypass"/>
 <!-- END_INCLUDE(google-bigquery:config) -->
 
 <!-- BEGIN_INCLUDE(google-bigquery:insert-all) -->
