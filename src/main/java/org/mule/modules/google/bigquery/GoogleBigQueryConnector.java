@@ -35,16 +35,21 @@ import com.google.api.client.googleapis.services.json.CommonGoogleJsonClientRequ
 import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.BigqueryRequest;
 import com.google.api.services.bigquery.BigqueryScopes;
+import com.google.api.services.bigquery.model.Table;
 import com.google.api.services.bigquery.model.TableDataInsertAllRequest;
 import com.google.api.services.bigquery.model.TableDataInsertAllResponse;
 import com.google.api.services.bigquery.model.TableDataInsertAllResponse.InsertErrors;
 import com.google.api.services.bigquery.model.TableDataList;
+import com.google.api.services.bigquery.model.TableFieldSchema;
+import com.google.api.services.bigquery.model.TableReference;
 import com.google.api.services.bigquery.model.TableRow;
+import com.google.api.services.bigquery.model.TableSchema;
 
 import java.io.InputStream;
 import java.security.PrivateKey;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -198,6 +203,14 @@ public class GoogleBigQueryConnector {
 		Boolean ignoreUnknownValues = (Boolean) content.get("ignoreUnknownValues");
 		if (ignoreUnknownValues != null)
 			insertAllRequest.setIgnoreUnknownValues(ignoreUnknownValues);
+		// createDisposition
+		String createDisposition = (String) content.get("createDisposition");
+		if (createDisposition != null)
+			insertAllRequest.set("createDisposition", createDisposition);
+		// createDisposition
+		String writeDisposition = (String) content.get("writeDisposition");
+		if (writeDisposition != null)
+			insertAllRequest.set("writeDisposition", writeDisposition);		
 
 		@SuppressWarnings("rawtypes")
 		List<Map> rows = (List<Map>) content.get("rows");
@@ -278,5 +291,84 @@ public class GoogleBigQueryConnector {
 		return list;
 		
 	}
+
+	/**
+	 * Deleting Table. 
+	 * 
+	 * {@sample.xml ../../../doc/google-bigquery-connector.xml.sample google-bigquery:delete-table}
+	 * 
+	 * @param projectId Project Id
+	 * @param datasetId Dataset Id
+	 * @param tableId Table Id
+	 * @return
+	 */
+	@Processor
+	public void deleteTable(String datasetId, String projectId, String tableId) {
+		
+		try {
+			logger.info("Deleting: " + projectId + " : " + datasetId + " : " + tableId);
+			bigQuery.tables().delete(projectId, datasetId, tableId).execute();
+		}
+		catch (java.io.IOException ioe) {
+			ioe.printStackTrace();
+			logger.error(ioe.getMessage());
+			throw new RuntimeException(String.format("Error deleting table%s.", ioe.toString()), ioe.getCause());
+		}		
+		
+	}
 	
+	/**
+	 * Inserting Empty Table. 
+	 * 
+	 * {@sample.xml ../../../doc/google-bigquery-connector.xml.sample google-bigquery:create-table}
+	 * 
+	 * @param projectId Project Id
+	 * @param datasetId Dataset Id
+	 * @param tableId Table Id
+	 * @param content Schema of table in map format
+	 * @return
+	 */
+	@Processor 
+	public void createTable(String datasetId, String projectId, String tableId, 
+			@Default("#[payload]") java.util.Map<String, Object> content) {
+
+		@SuppressWarnings("unchecked")
+		ArrayList<HashMap<String,String>> fieldmaps = (ArrayList<HashMap<String,String>>) content.get("fields");
+		ArrayList<TableFieldSchema> fieldsSchema = new ArrayList<TableFieldSchema>();
+		
+		for (@SuppressWarnings("rawtypes") HashMap fieldmap : fieldmaps) {
+			TableFieldSchema tfSchema = new TableFieldSchema();
+			tfSchema.setName((String) fieldmap.get("name"));
+			tfSchema.setMode((String) fieldmap.get("mode"));
+			tfSchema.setType((String) fieldmap.get("type"));
+			tfSchema.setDescription((String) fieldmap.get("description"));
+			logger.info("Field schema: " + tfSchema);
+			// Add
+			fieldsSchema.add(tfSchema);
+		}
+		
+		TableSchema tableSchema = new TableSchema();
+		tableSchema.setFields(fieldsSchema);
+		
+		TableReference tableReference = new TableReference();
+		tableReference.setDatasetId(datasetId);
+		tableReference.setProjectId(projectId);
+		tableReference.setTableId(tableId);
+		
+		Table table = new Table();
+		table.setSchema(tableSchema);
+		table.setTableReference(tableReference);
+		
+		try {
+			logger.info("Inserting: " + projectId + " : " + datasetId + " : " + tableId);
+			bigQuery.tables().insert(projectId, datasetId, table).execute();
+		}
+		catch (java.io.IOException ioe) {
+			ioe.printStackTrace();
+			logger.error(ioe.getMessage());
+			throw new RuntimeException(String.format("Error insert table%s.", ioe.toString()), ioe.getCause());
+		}			
+		
+		return;
+	}
 }

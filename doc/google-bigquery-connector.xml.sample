@@ -12,3 +12,13 @@
 <!-- BEGIN_INCLUDE(google-bigquery:list-all) -->
     <google-bigquery:list-all datasetId="someId" projectId="someId" tableId="someId"/>
 <!-- END_INCLUDE(google-bigquery:list-all) -->
+
+<!-- BEGIN_INCLUDE(google-bigquery:delete-table) -->
+    <google-bigquery:delete-table datasetId="someId" projectId="someId" tableId="someId"/>
+<!-- END_INCLUDE(google-bigquery:delete-table) -->
+
+<!-- BEGIN_INCLUDE(google-bigquery:create-table) -->
+    <google-bigquery:create-table datasetId="someId" projectId="someId" tableId="someId">
+    	<google-bigquery:content ref="#[payload]"/>
+    </google-bigquery:create-table>
+<!-- END_INCLUDE(google-bigquery:create-table) -->
