@@ -187,7 +187,7 @@ public class GoogleBigQueryConnector {
 	@SuppressWarnings("unchecked")
 	@Processor	
 	public String insertAll(String datasetId, String projectId, String tableId, 
-			@Default("#[payload]") java.util.Map<String, Object> content) {
+			@Default("#[payload]") java.util.Map<String, Object> content, @Default("0") long throttle) {
 	
 		logger.info("Insert all payload:\n" + content);
 		
@@ -235,6 +235,11 @@ public class GoogleBigQueryConnector {
 			
 		try {
 			logger.trace("InsertAllRequest:\n" + insertAllRequest.toPrettyString());
+			try {
+				Thread.sleep(throttle);
+			} catch (InterruptedException e) {
+				logger.error(e.getMessage());
+			}
 			response = bigQuery.tabledata().insertAll(projectId, datasetId, tableId, insertAllRequest).execute();
 			strResponse = response.toPrettyString();
 
