@@ -44,6 +44,7 @@ import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableReference;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
+import com.google.gson.Gson;
 
 import java.io.InputStream;
 import java.security.PrivateKey;
@@ -68,6 +69,8 @@ public class GoogleBigQueryConnector {
 	private static final JsonFactory JSON_FACTORY = new JacksonFactory();
 
 	private static HttpTransport httpTransport = null;
+	
+	private static Gson gson = new Gson();
 
 	// Credentials
 	private GoogleCredential credential;
@@ -222,11 +225,12 @@ public class GoogleBigQueryConnector {
 			if (insertId != null)
 				requestRows.setInsertId(insertId);
 			else
-				requestRows.setInsertId(String.valueOf(System.currentTimeMillis()));
+				requestRows.setInsertId(String.valueOf(System.nanoTime()));
 			TableRow tableRow = new TableRow();
+			
 			tableRow.putAll((Map<String,Object>) row.get("json"));
-			logger.trace("Table Row: " + tableRow);
 			requestRows.setJson(tableRow);
+			logger.trace("Row: " + gson.toJson(requestRows));
 			tableRows.add(requestRows);
 		}
 		
@@ -234,7 +238,7 @@ public class GoogleBigQueryConnector {
 		insertAllRequest.setRows(tableRows);
 			
 		try {
-			logger.trace("InsertAllRequest:\n" + insertAllRequest.toPrettyString());
+			logger.trace("InsertAllRequest:\n" + gson.toJson(insertAllRequest));
 			try {
 				Thread.sleep(throttle);
 			} catch (InterruptedException e) {
