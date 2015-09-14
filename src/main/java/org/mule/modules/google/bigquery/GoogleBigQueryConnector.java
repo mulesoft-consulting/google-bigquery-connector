@@ -192,7 +192,7 @@ public class GoogleBigQueryConnector {
 	public String insertAll(String datasetId, String projectId, String tableId, 
 			@Default("#[payload]") java.util.Map<String, Object> content, @Default("0") long throttle) {
 	
-		logger.info("Insert all payload:\n" + content);
+		logger.trace("Insert all payload:\n" + content);
 		
 		String strResponse = null;
 		
