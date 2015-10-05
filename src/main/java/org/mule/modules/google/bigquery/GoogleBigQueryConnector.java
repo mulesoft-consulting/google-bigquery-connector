@@ -46,6 +46,7 @@ import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.gson.Gson;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.security.PrivateKey;
 import java.util.ArrayList;
@@ -78,6 +79,9 @@ public class GoogleBigQueryConnector {
 	// Big Query
 	private Bigquery bigQuery;
 	
+	// Application name
+	private String applicationName;
+	
 	/**
 	 * 
 	 * @param applicationName
@@ -94,6 +98,7 @@ public class GoogleBigQueryConnector {
 		throws ConnectionException {
 		
 		logger.info(String.format("Logging into Google BigQuery application %s.", applicationName));
+		this.applicationName = applicationName;
 		
 		try {
 			InputStream in = this.getClass().getClassLoader().getResourceAsStream(privateKeyP12File);
@@ -110,22 +115,7 @@ public class GoogleBigQueryConnector {
 		            .setServiceAccountPrivateKey(key)
 		            .build();
 		    
-		    credential.refreshToken();
-		    logger.trace("Assess token: " + credential.getAccessToken());
-		    logger.trace("Refresh token: " + credential.getRefreshToken());
-		    
-	        bigQuery = new Bigquery.Builder(httpTransport, JSON_FACTORY, credential)
-				.setGoogleClientRequestInitializer(new CommonGoogleJsonClientRequestInitializer() {
-					@SuppressWarnings("unused")
-					public void initialize(@SuppressWarnings("rawtypes") AbstractGoogleJsonClientRequest request) {
-				        @SuppressWarnings("rawtypes")
-						BigqueryRequest bigqueryRequest = (BigqueryRequest) request;
-				        bigqueryRequest.setPrettyPrint(true);
-					}
-				})
-	            .setApplicationName(applicationName)
-	            .setHttpRequestInitializer(credential).build();
-	        logger.info("BigQuery client created: " + bigQuery.toString());
+		    refreshBigQueryClient();
 			
 		}
 		catch (Exception ex) {
@@ -238,6 +228,7 @@ public class GoogleBigQueryConnector {
 		insertAllRequest.setRows(tableRows);
 			
 		try {
+			refreshBigQueryClient();
 			logger.trace("InsertAllRequest:\n" + gson.toJson(insertAllRequest));
 			try {
 				Thread.sleep(throttle);
@@ -286,6 +277,7 @@ public class GoogleBigQueryConnector {
 		TableDataList list = null;
 		
 		try {
+			refreshBigQueryClient();
 			logger.info("Listing: " + projectId + " : " + datasetId + " : " + tableId);
 			list = bigQuery.tabledata().list(projectId, datasetId, tableId).execute();
 			if (list != null)
@@ -315,6 +307,7 @@ public class GoogleBigQueryConnector {
 	public void deleteTable(String datasetId, String projectId, String tableId) {
 		
 		try {
+			refreshBigQueryClient();
 			logger.info("Deleting: " + projectId + " : " + datasetId + " : " + tableId);
 			bigQuery.tables().delete(projectId, datasetId, tableId).execute();
 		}
@@ -340,7 +333,7 @@ public class GoogleBigQueryConnector {
 	@Processor 
 	public void createTable(String datasetId, String projectId, String tableId, 
 			@Default("#[payload]") java.util.Map<String, Object> content) {
-
+		
 		@SuppressWarnings("unchecked")
 		ArrayList<HashMap<String,String>> fieldmaps = (ArrayList<HashMap<String,String>>) content.get("fields");
 		ArrayList<TableFieldSchema> fieldsSchema = new ArrayList<TableFieldSchema>();
@@ -369,6 +362,7 @@ public class GoogleBigQueryConnector {
 		table.setTableReference(tableReference);
 		
 		try {
+			refreshBigQueryClient();
 			logger.info("Inserting: " + projectId + " : " + datasetId + " : " + tableId);
 			bigQuery.tables().insert(projectId, datasetId, table).execute();
 		}
@@ -379,5 +373,27 @@ public class GoogleBigQueryConnector {
 		}			
 		
 		return;
+	}
+	
+	/**
+	 * Refresh credentials
+	 */
+	private void refreshBigQueryClient() throws IOException {
+	    credential.refreshToken();
+	    logger.trace("Assess token: " + credential.getAccessToken());
+	    logger.trace("Refresh token: " + credential.getRefreshToken());
+	    
+        bigQuery = new Bigquery.Builder(httpTransport, JSON_FACTORY, credential)
+			.setGoogleClientRequestInitializer(new CommonGoogleJsonClientRequestInitializer() {
+				@SuppressWarnings("unused")
+				public void initialize(@SuppressWarnings("rawtypes") AbstractGoogleJsonClientRequest request) {
+			        @SuppressWarnings("rawtypes")
+					BigqueryRequest bigqueryRequest = (BigqueryRequest) request;
+			        bigqueryRequest.setPrettyPrint(true);
+				}
+			})
+            .setApplicationName(this.applicationName)
+            .setHttpRequestInitializer(credential).build();
+        logger.trace("BigQuery client created: " + bigQuery.toString());		
 	}
 }
