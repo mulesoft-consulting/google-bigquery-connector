@@ -22,3 +22,20 @@
     	<google-bigquery:content ref="#[payload]"/>
     </google-bigquery:create-table>
 <!-- END_INCLUDE(google-bigquery:create-table) -->
+
+<!-- BEGIN_INCLUDE(google-bigquery:list-all-projects) -->
+    <google-bigquery:list-all-projects />
+<!-- END_INCLUDE(google-bigquery:list-all-projects) -->
+
+<!-- BEGIN_INCLUDE(google-bigquery:list-all-datasets) -->
+    <google-bigquery:list-all-datasets projectId="someId" />
+<!-- END_INCLUDE(google-bigquery:list-all-datasets) -->
+
+<!-- BEGIN_INCLUDE(google-bigquery:list-all-tables) -->
+    <google-bigquery:list-all-tables datasetId="someId" projectId="someId" />
+<!-- END_INCLUDE(google-bigquery:list-all-tables) -->
+
+<!-- BEGIN_INCLUDE(google-bigquery:list-all-tablefields) -->
+    <google-bigquery:list-all-tablefields datasetId="someId" projectId="someId" tableId="someId"/>
+<!-- END_INCLUDE(google-bigquery:list-all-tablefields) -->
+

@@ -35,12 +35,15 @@ import com.google.api.client.googleapis.services.json.CommonGoogleJsonClientRequ
 import com.google.api.services.bigquery.Bigquery;
 import com.google.api.services.bigquery.BigqueryRequest;
 import com.google.api.services.bigquery.BigqueryScopes;
+import com.google.api.services.bigquery.model.DatasetList;
+import com.google.api.services.bigquery.model.ProjectList;
 import com.google.api.services.bigquery.model.Table;
 import com.google.api.services.bigquery.model.TableDataInsertAllRequest;
 import com.google.api.services.bigquery.model.TableDataInsertAllResponse;
 import com.google.api.services.bigquery.model.TableDataInsertAllResponse.InsertErrors;
 import com.google.api.services.bigquery.model.TableDataList;
 import com.google.api.services.bigquery.model.TableFieldSchema;
+import com.google.api.services.bigquery.model.TableList;
 import com.google.api.services.bigquery.model.TableReference;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
@@ -87,22 +90,23 @@ public class GoogleBigQueryConnector {
 	 * @param applicationName
 	 * @param serviceAccount
 	 * @param scope
-	 * @param privateKeyP12File
+	 * @param privateKeyFile
 	 * 
 	 * Initiate connection
 	 */
 	@SuppressWarnings("unchecked")
 	@Connect
-	public void connect(@ConnectionKey String applicationName, @Password String serviceAccount, String privateKeyP12File,  
+	public void connect(@ConnectionKey String applicationName, @Password String serviceAccount, String privateKeyFile,  
 			@Password String storePass, String alias, @Password String keyPass) 
 		throws ConnectionException {
 		
-		logger.info(String.format("Logging into Google BigQuery application %s.", applicationName));
+		logger.info(String.format("Logging into Google BigQuery application %s :: %s :: %s", applicationName, privateKeyFile, alias));
 		this.applicationName = applicationName;
 		
 		try {
-			InputStream in = this.getClass().getClassLoader().getResourceAsStream(privateKeyP12File);
-			PrivateKey key = SecurityUtils.loadPrivateKeyFromKeyStore(SecurityUtils.getPkcs12KeyStore(), in, storePass, alias, keyPass);
+			InputStream in = this.getClass().getClassLoader().getResourceAsStream(privateKeyFile);
+			logger.info("Key file loaded " + in.available());
+			PrivateKey key = SecurityUtils.loadPrivateKeyFromKeyStore(SecurityUtils.getJavaKeyStore(), in, storePass, alias, keyPass);
 			logger.trace("Key size: "+key.getEncoded().length);
 			logger.trace("Key algorithm: "+key.getAlgorithm());
 			
@@ -262,7 +266,7 @@ public class GoogleBigQueryConnector {
 	}
 
 	/**
-	 * Streaming into Table. 
+	 * Listing all from Table. 
 	 * 
 	 * {@sample.xml ../../../doc/google-bigquery-connector.xml.sample google-bigquery:list-all}
 	 * 
@@ -375,6 +379,126 @@ public class GoogleBigQueryConnector {
 		return;
 	}
 	
+	/**
+	 * Listing all tables. 
+	 * 
+	 * {@sample.xml ../../../doc/google-bigquery-connector.xml.sample google-bigquery:list-all-tables}
+	 * 
+	 * @param projectId Project Id
+	 * @param datasetId Dataset Id
+	 * @return
+	 */
+	@Processor	
+	public List<TableList.Tables> listAllTables(String projectId, String datasetId) {
+
+		TableList tableList = null;
+		
+		try {
+			refreshBigQueryClient();
+			logger.info("Listing Tables for project " +  projectId + " :: dataset " + datasetId);
+			tableList = bigQuery.tables().list(projectId, datasetId).execute();
+			if (tableList != null)
+				logger.info("List All Tables response:\n" + tableList.toPrettyString());
+		}
+		catch (java.io.IOException ioe) {
+			ioe.printStackTrace();
+			logger.error(ioe.getMessage());
+			throw new RuntimeException(String.format("Error listing Tables%s.", ioe.toString()), ioe.getCause());
+		}
+				
+		return tableList.getTables();
+		
+	}
+
+	/**
+	 * Listing all table fields. 
+	 * 
+	 * {@sample.xml ../../../doc/google-bigquery-connector.xml.sample google-bigquery:list-all-tablefields}
+	 * 
+	 * @param projectId Project Id
+	 * @return
+	 */
+	@Processor	
+	public List<TableFieldSchema> listAllTableFields(String projectId, String datasetId, String tableId) {
+
+		List<TableFieldSchema> fields = null;
+		
+		try {
+			refreshBigQueryClient();
+			logger.info("Listing fields for project " + projectId + " :: dataset " + datasetId + " :: table " + tableId);
+			fields = bigQuery.tables().get(projectId, datasetId, tableId).execute().getSchema().getFields();
+			if (fields != null)
+				logger.info("List All Fields response:\n" + fields);
+		}
+		catch (java.io.IOException ioe) {
+			ioe.printStackTrace();
+			logger.error(ioe.getMessage());
+			throw new RuntimeException(String.format("Error listing datasets%s.", ioe.toString()), ioe.getCause());
+		}
+				
+		return fields;
+		
+	}
+
+	/**
+	 * Listing all datasets. 
+	 * 
+	 * {@sample.xml ../../../doc/google-bigquery-connector.xml.sample google-bigquery:list-all-datasets}
+	 * 
+	 * @param projectId Project Id
+	 * @return
+	 */
+	@Processor	
+	public List<DatasetList.Datasets> listAllDatasets(String projectId) {
+
+		DatasetList datasetList = null;
+		
+		try {
+			refreshBigQueryClient();
+			logger.info("Listing datasets for project " + projectId);
+			datasetList = bigQuery.datasets().list(projectId).execute();
+			if (datasetList != null)
+				logger.info("List All Dataset response:\n" + datasetList.toPrettyString());
+		}
+		catch (java.io.IOException ioe) {
+			ioe.printStackTrace();
+			logger.error(ioe.getMessage());
+			throw new RuntimeException(String.format("Error listing datasets%s.", ioe.toString()), ioe.getCause());
+		}
+				
+		return datasetList.getDatasets();
+		
+	}
+
+	/**
+	 * Listing all projects. 
+	 * 
+	 * {@sample.xml ../../../doc/google-bigquery-connector.xml.sample google-bigquery:list-all-projects}
+	 * 
+	 * @return
+	 */
+	@Processor	
+	public List<ProjectList.Projects> listAllProjects() {
+
+		ProjectList projectList = null;
+		
+		try {
+			refreshBigQueryClient();
+			logger.info("Listing projects...");
+			projectList = bigQuery.projects().list().execute();
+			if (projectList != null)
+				logger.info("List All Projects response:\n" + projectList.toPrettyString());
+		}
+		catch (java.io.IOException ioe) {
+			ioe.printStackTrace();
+			logger.error(ioe.getMessage());
+			throw new RuntimeException(String.format("Error listing projects%s.", ioe.toString()), ioe.getCause());
+		}
+				
+		return projectList.getProjects();
+		
+	}
+
 	/**
 	 * Refresh credentials
 	 */
